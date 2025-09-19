@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beauty App 🌸</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#ffeef5; }
+    header { background:#ff9fcf; padding:10px; text-align:center; color:white; }
+    nav { display:flex; justify-content:space-around; background:#ffd6e9; padding:10px; }
+    nav button { background:none; border:none; font-weight:bold; color:#333; cursor:pointer; }
+    .screen { display:none; padding:20px; }
+    .active { display:block; }
+    .card { background:white; border-radius:10px; padding:15px; margin:10px 0; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    input, select, textarea { width:100%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #ccc; }
+    button.action { background:#ff7bb0; color:white; border:none; padding:10px 15px; border-radius:8px; cursor:pointer; }
+    button.action:hover { background:#ff5898; }
+    .profile-pic { width:100px; height:100px; border-radius:50%; object-fit:cover; display:block; margin:0 auto 10px auto; }
+    video { width:100%; border-radius:10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Beauty App 🌸</h1>
+  </header>
+
+  <nav id="mainNav" style="display:none;">
+    <button onclick="showScreen('home')">Home</button>
+    <button onclick="showScreen('favorites')">Favoritos</button>
+    <button onclick="showScreen('store')">Tienda</button>
+    <button onclick="showScreen('cart')">Carrito</button>
+    <button onclick="showScreen('upload')">Subir</button>
+    <button onclick="showScreen('profile')">Perfil</button>
+  </nav>
+
+  <!-- LOGIN -->
+  <div id="login" class="screen active">
+    <h2>Iniciar Sesión</h2>
+    <input type="text" id="loginUser" placeholder="Usuario o Correo">
+    <input type="password" id="loginPass" placeholder="Contraseña">
+    <button class="action" onclick="login()">Entrar</button>
+    <p>¿No tienes cuenta? <a href="#" onclick="showScreen('register')">Regístrate</a></p>
+  </div>
+
+  <!-- REGISTRO -->
+  <div id="register" class="screen">
+    <h2>Registro</h2>
+    <input type="text" id="regName" placeholder="Nombre completo">
+    <input type="text" id="regUser" placeholder="Nombre de usuario">
+    <input type="email" id="regEmail" placeholder="Correo electrónico">
+    <input type="password" id="regPass" placeholder="Contraseña">
+    <input type="password" id="regPass2" placeholder="Confirmar contraseña">
+    <label><input type="checkbox" id="regTerms"> Acepto términos y condiciones</label>
+    <button class="action" onclick="register()">Registrarme</button>
+  </div>
+
+  <!-- HOME -->
+  <div id="home" class="screen">
+    <h2>Videos sugeridos</h2>
+    <div id="videos"></div>
+  </div>
+
+  <!-- FAVORITOS -->
+  <div id="favorites" class="screen">
+    <h2>Mis favoritos</h2>
+    <div id="favList"></div>
+  </div>
+
+  <!-- TIENDA -->
+  <div id="store" class="screen">
+    <h2>Tienda</h2>
+    <input type="text" id="searchProduct" placeholder="Buscar producto..." oninput="searchProducts()">
+    <div id="productList"></div>
+  </div>
+
+  <!-- CARRITO -->
+  <div id="cart" class="screen">
+    <h2>Carrito</h2>
+    <div id="cartList"></div>
+    <p><b>Total:</b> $<span id="cartTotal">0</span></p>
+    <button class="action" onclick="checkout()">Pagar</button>
+  </div>
+
+  <!-- SUBIR VIDEO -->
+  <div id="upload" class="screen">
+    <h2>Subir video</h2>
+    <input type="text" id="videoTitle" placeholder="Título">
+    <textarea id="videoDesc" placeholder="Descripción"></textarea>
+    <input type="file" id="videoFile" accept="video/mp4">
+    <input type="file" id="videoThumb" accept="image/*">
+    <button class="action" onclick="uploadVideo()">Subir</button>
+  </div>
+
+  <!-- PERFIL -->
+  <div id="profile" class="screen">
+    <h2>Mi Perfil</h2>
+    <img id="profilePic" class="profile-pic" src="" alt="Foto de perfil">
+    <input type="file" id="newProfilePic" accept="image/*" onchange="changeProfilePic(event)">
+    <h3 id="profileUsername"></h3>
+    <p><b>Correo:</b> <span id="profileEmail"></span></p>
+    <textarea id="profileBio" placeholder="Escribe tu biografía..." maxlength="250"></textarea>
+    <button class="action" onclick="saveProfile()">Guardar cambios</button>
+    <br><br>
+    <button class="action" style="background:#888;" onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <script>
+    let users = JSON.parse(localStorage.getItem('users')||'[]');
+    let currentUser = JSON.parse(localStorage.getItem('currentUser')||'null');
+    let favorites = JSON.parse(localStorage.getItem('favorites')||'[]');
+    let products = [
+      {id:1, name:"Labial Rosado", price:15, stock:5, img:"https://via.placeholder.com/150"},
+      {id:2, name:"Base Natural", price:25, stock:3, img:"https://via.placeholder.com/150"},
+      {id:3, name:"Sombras Pastel", price:20, stock:4, img:"https://via.placeholder.com/150"},
+      {id:4, name:"Brochas Set", price:30, stock:6, img:"https://via.placeholder.com/150"}
+    ];
+    let cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    let videos = JSON.parse(localStorage.getItem('videos')||'[]');
+
+    // videos demo
+    if(videos.length===0){
+      videos=[
+        {title:"Maquillaje Natural",desc:"Look fresco en 5 min",src:"https://www.w3schools.com/html/mov_bbb.mp4"},
+        {title:"Maquillaje de Noche",desc:"Para eventos elegantes",src:"https://www.w3schools.com/html/movie.mp4"},
+        {title:"Cuidado Facial",desc:"Rutina de skincare",src:"https://www.w3schools.com/html/mov_bbb.mp4"}
+      ];
+      localStorage.setItem('videos',JSON.stringify(videos));
+    }
+
+    function showScreen(id){
+      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function register(){
+      let name=document.getElementById('regName').value;
+      let user=document.getElementById('regUser').value;
+      let email=document.getElementById('regEmail').value;
+      let pass=document.getElementById('regPass').value;
+      let pass2=document.getElementById('regPass2').value;
+      let terms=document.getElementById('regTerms').checked;
+      if(!name||!user||!email||!pass||!pass2||!terms){alert('Completa todos los campos');return;}
+      if(pass!==pass2){alert('Contraseñas no coinciden');return;}
+      if(users.find(u=>u.user===user)){alert('Usuario ya existe');return;}
+      let newUser={name,user,email,pass,pic:"",bio:""};
+      users.push(newUser);
+      localStorage.setItem('users',JSON.stringify(users));
+      alert('Registro exitoso');
+      showScreen('login');
+    }
+
+    function login(){
+      let user=document.getElementById('loginUser').value;
+      let pass=document.getElementById('loginPass').value;
+      let u=users.find(u=>(u.user===user||u.email===user)&&u.pass===pass);
+      if(!u){alert('Datos incorrectos');return;}
+      currentUser=u;
+      localStorage.setItem('currentUser',JSON.stringify(u));
+      document.getElementById('mainNav').style.display='flex';
+      showScreen('home');
+      loadVideos();
+      loadProfile();
+      searchProducts();
+    }
+
+    function logout(){
+      currentUser=null;
+      localStorage.removeItem('currentUser');
+      document.getElementById('mainNav').style.display='none';
+      showScreen('login');
+    }
+
+    function loadVideos(){
+      let cont=document.getElementById('videos');
+      cont.innerHTML="";
+      videos.forEach((v,i)=>{
+        let div=document.createElement('div');
+        div.className='card';
+        div.innerHTML=`<h4>${v.title}</h4><video controls src="${v.src}"></video><p>${v.desc}</p><button onclick="addFav('${i}')">Favorito</button>`;
+        cont.appendChild(div);
+      });
+    }
+
+    function addFav(index){
+      let vid=videos[index];
+      if(!favorites.find(f=>f.title===vid.title)) favorites.push(vid);
+      localStorage.setItem('favorites',JSON.stringify(favorites));
+      loadFavorites();
+    }
+
+    function loadFavorites(){
+      let cont=document.getElementById('favList');
+      cont.innerHTML=favorites.map(f=>`<div class='card'><h4>${f.title}</h4><video controls src="${f.src}"></video><p>${f.desc}</p></div>`).join('');
+    }
+
+    function searchProducts(){
+      let q=document.getElementById('searchProduct').value.toLowerCase();
+      let cont=document.getElementById('productList');
+      cont.innerHTML="";
+      products.filter(p=>p.name.toLowerCase().includes(q)).forEach(p=>{
+        let div=document.createElement('div');
+        div.className='card';
+        div.innerHTML=`<img src="${p.img}" style="width:100px;display:block;margin-bottom:5px;"> <b>${p.name}</b> - $${p.price}<br><button onclick="addCart(${p.id})">Agregar</button>`;
+        cont.appendChild(div);
+      });
+    }
+
+    function addCart(id){
+      let p=products.find(p=>p.id===id);
+      let item=cart.find(c=>c.id===id);
+      if(item) item.qty++;
+      else cart.push({...p,qty:1});
+      localStorage.setItem('cart',JSON.stringify(cart));
+      loadCart();
+    }
+
+    function loadCart(){
+      let cont=document.getElementById('cartList');
+      cont.innerHTML="";
+      let total=0;
+      cart.forEach(c=>{
+        total+=c.price*c.qty;
+        cont.innerHTML+=`<div class='card'><img src="${c.img}" style="width:50px;"> ${c.name} x${c.qty} - $${c.price*c.qty}</div>`;
+      });
+      document.getElementById('cartTotal').textContent=total;
+    }
+
+    function checkout(){
+      if(cart.length===0){alert('Carrito vacío');return;}
+      alert('Simulación de pago exitosa');
+      cart=[];
+      localStorage.setItem('cart','[]');
+      loadCart();
+    }
+
+    function uploadVideo(){
+      let title=document.getElementById('videoTitle').value;
+      let desc=document.getElementById('videoDesc').value;
+      let file=document.getElementById('videoFile').files[0];
+      if(title.length<3||!file){alert('Completa título y video');return;}
+      let src=URL.createObjectURL(file);
+      let v={title,desc,src};
+      videos.push(v);
+      localStorage.setItem('videos',JSON.stringify(videos));
+      loadVideos();
+      showScreen('home');
+    }
+
+    function loadProfile(){
+      if(!currentUser) return;
+      document.getElementById('profileUsername').textContent=currentUser.user;
+      document.getElementById('profileEmail').textContent=currentUser.email;
+      document.getElementById('profileBio').value=currentUser.bio||"";
+      document.getElementById('profilePic').src=currentUser.pic||"https://via.placeholder.com/100";
+    }
+
+    function changeProfilePic(e){
+      let file=e.target.files[0];
+      if(file){
+        let reader=new FileReader();
+        reader.onload=function(ev){
+          document.getElementById('profilePic').src=ev.target.result;
+          currentUser.pic=ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function saveProfile(){
+      currentUser.bio=document.getElementById('profileBio').value;
+      localStorage.setItem('currentUser',JSON.stringify(currentUser));
+      users=users.map(u=>u.user===currentUser.user?currentUser:u);
+      localStorage.setItem('users',JSON.stringify(users));
+      alert('Perfil actualizado');
+    }
+
+    if(currentUser){
+      document.getElementById('mainNav').style.display='flex';
+      showScreen('home');
+      loadVideos();
+      loadProfile();
+      searchProducts();
+    }
+  </script>
+</body>
+</html>
+
