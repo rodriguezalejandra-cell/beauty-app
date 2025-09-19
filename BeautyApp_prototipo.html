@@ -1,0 +1,784 @@
+<!--
+BeautyApp - Single File SPA
+HTML / CSS / JS (all-in-one)
+
+Cómo usar:
+1. Guarda este contenido en un archivo llamado `index.html`.
+2. Abre el archivo en un navegador moderno (Chrome/Edge/Firefox).
+
+Qué incluye:
+- Registro / Login (datos guardados en localStorage)
+- Home (feed de videos de sugerencia)
+- Reproductor de video con lista de productos usados
+- Favoritos
+- Tienda con búsqueda, filtros y carrito
+- Carrito con pago por "QR" (simulado) o por tarjeta (validación Luhn)
+- Subir video (simulado; miniatura + metadata; el video puede guardarse como dataURL si no supera el límite)
+- Perfil editable (foto, bio)
+- Wireframe visual dentro de la app (ver menú -> Wireframe)
+
+Limitaciones:
+- Es una demo en front-end. No hay back-end real ni pagos reales.
+- Archivos muy grandes (videos) podrían no guardarse en localStorage por límites del navegador.
+
+Diseño: paleta pastel/rosita, botones redondeados, tarjetas con sombras.
+-->
+
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Beauty App — Demo</title>
+  <style>
+    :root{
+      --bg:#fff6fa;
+      --card:#ffffff;
+      --accent:#ff5fa8;
+      --accent-2:#ff8cc6;
+      --muted:#9b9b9b;
+      --glass: rgba(255,255,255,0.8);
+      --shadow: 0 6px 18px rgba(17,12,33,0.08);
+      --radius:14px;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#fff);color:#222;}
+    .app{max-width:1100px;margin:24px auto;padding:18px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),var(--accent-2));border-radius:12px;display:grid;place-items:center;color:white;font-weight:700;box-shadow:var(--shadow)}
+    h1{font-size:18px;margin:0}
+    .sub{color:var(--muted);font-size:13px}
+
+    /* Auth card */
+    .auth-wrap{display:flex;gap:20px;flex-wrap:wrap}
+    .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:var(--shadow);flex:1;min-width:280px}
+    form{display:flex;flex-direction:column;gap:10px}
+    label{font-size:13px;color:#444}
+    input[type=text],input[type=password],input[type=email],select,textarea{padding:10px;border-radius:10px;border:1px solid #eee;background:#fafafa}
+    .btn{display:inline-block;padding:10px 14px;border-radius:12px;background:var(--accent);color:white;border:none;cursor:pointer;font-weight:600}
+    .btn.secondary{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:12px}
+    .row{display:flex;gap:8px}
+
+    /* App layout */
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+    nav button{padding:8px 12px;border-radius:10px;background:transparent;border:1px solid transparent}
+    nav button.active{background:var(--accent);color:white}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+    .video-card{background:var(--card);border-radius:12px;padding:12px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+    .thumb{width:100%;height:150px;border-radius:10px;background-size:cover;background-position:center}
+    .title{font-weight:700}
+    .desc{font-size:13px;color:var(--muted)}
+
+    .mini{display:flex;gap:8px;align-items:center}
+    .chip{background:#fff;border-radius:999px;padding:6px 10px;border:1px solid #f0d9e5;font-weight:600}
+
+    /* Product card */
+    .product{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;background:linear-gradient(180deg, #fff, #fff);box-shadow:var(--shadow)}
+    .p-thumb{width:72px;height:72px;border-radius:10px;background:#f3e7ef;display:grid;place-items:center;font-weight:700}
+    .p-info{flex:1}
+    .p-actions{display:flex;flex-direction:column;gap:8px}
+
+    /* Modal */
+    .modal{position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;padding:20px}
+    .modal.open{display:flex}
+    .modal .panel{width:100%;max-width:880px;background:var(--card);border-radius:16px;padding:18px;box-shadow:var(--shadow);max-height:90vh;overflow:auto}
+
+    /* Cart */
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;text-align:left;border-bottom:1px solid #f3f3f3}
+
+    /* Profile */
+    .avatar{width:84px;height:84px;border-radius:50%;background:#ffe3f1;display:grid;place-items:center;font-weight:700}
+
+    /* Responsive */
+    @media(min-width:900px){
+      .layout{display:grid;grid-template-columns:280px 1fr;gap:18px}
+      nav{flex-direction:column}
+      header{justify-content:space-between}
+    }
+
+    /* Toasts / errors */
+    .error{color:#b00020;font-size:13px}
+    .success{color:green}
+
+    /* Wireframe boxes */
+    .wf{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+    .wf .box{background:#fff;border-radius:10px;padding:12px;box-shadow:var(--shadow);text-align:center}
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">B</div>
+        <div>
+          <h1>Beauty App</h1>
+          <div class="sub">Tu espacio de tutoriales y tienda de belleza</div>
+        </div>
+      </div>
+      <div id="userHeader" style="margin-left:auto"></div>
+    </header>
+
+    <main id="mainArea">
+      <!-- AUTH (registro / login) -->
+      <div id="authArea">
+        <div class="auth-wrap">
+          <div class="card" style="flex:1;min-width:340px">
+            <h3>Crear cuenta</h3>
+            <form id="registerForm">
+              <div>
+                <label>Nombre completo</label>
+                <input type="text" id="regName" placeholder="Ej: Alejandra Perez" required />
+                <div class="error" id="errName"></div>
+              </div>
+              <div>
+                <label>Nombre de usuario</label>
+                <input type="text" id="regUser" placeholder="usuario123" required />
+                <div class="error" id="errUser"></div>
+              </div>
+              <div>
+                <label>Correo electrónico</label>
+                <input type="email" id="regEmail" placeholder="correo@ejemplo.com" required />
+                <div class="error" id="errEmail"></div>
+              </div>
+              <div class="row">
+                <div style="flex:1">
+                  <label>Contraseña</label>
+                  <input type="password" id="regPass" placeholder="Mínimo 8 caracteres" required />
+                  <div class="error" id="errPass"></div>
+                </div>
+                <div style="flex:1">
+                  <label>Confirmar contraseña</label>
+                  <input type="password" id="regPass2" placeholder="Repite la contraseña" required />
+                  <div class="error" id="errPass2"></div>
+                </div>
+              </div>
+              <div>
+                <label style="display:inline-flex;align-items:center;gap:8px"><input type="checkbox" id="terms"/> Acepto términos y condiciones</label>
+                <div class="error" id="errTerms"></div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn" type="submit">Crear cuenta</button>
+                <button class="btn secondary" type="button" id="toLogin">¿Ya tienes cuenta? Inicia sesión</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card" style="flex:1;min-width:300px">
+            <h3>Iniciar sesión</h3>
+            <form id="loginForm">
+              <label>Correo o usuario</label>
+              <input type="text" id="loginUser" placeholder="correo@oUsuario" required />
+              <label>Contraseña</label>
+              <input type="password" id="loginPass" placeholder="Contraseña" required />
+              <div class="error" id="errLogin"></div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn" type="submit">Entrar</button>
+                <button class="btn secondary" type="button" id="demo">Entrar como demo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- APP CONTENT -->
+      <div id="appArea" style="display:none">
+        <div class="layout">
+          <aside>
+            <div class="card" style="margin-bottom:12px">
+              <div style="display:flex;gap:12px;align-items:center;">
+                <div id="sideAvatar" class="avatar">U</div>
+                <div>
+                  <div id="sideName" style="font-weight:700"></div>
+                  <div class="muted" id="sideEmail"></div>
+                </div>
+              </div>
+            </div>
+            <nav>
+              <button data-view="home" class="active">Home</button>
+              <button data-view="favorites">Favoritos</button>
+              <button data-view="store">Tienda</button>
+              <button data-view="cart">Carrito</button>
+              <button data-view="upload">Subir video</button>
+              <button data-view="profile">Perfil</button>
+              <button data-view="wireframe">Wireframe</button>
+              <button id="logoutBtn" style="margin-top:8px;border:1px solid #eee">Cerrar sesión</button>
+            </nav>
+          </aside>
+
+          <section>
+            <!-- Search / header -->
+            <div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div style="display:flex;gap:12px;align-items:center;width:100%">
+                <input id="searchInput" type="text" placeholder="Buscar videos o productos (mín 2 letras)" style="flex:1;padding:10px;border-radius:10px;border:1px solid #f0f0f0" />
+                <select id="categoryFilter" style="padding:10px;border-radius:10px;border:1px solid #f0f0f0">
+                  <option value="all">Todas las categorías</option>
+                  <option value="maquillaje">Maquillaje</option>
+                  <option value="cuidado">Cuidado de la piel</option>
+                </select>
+                <button class="btn" id="searchBtn">Buscar</button>
+              </div>
+            </div>
+
+            <!-- Views -->
+            <div id="viewHome" class="view">
+              <div class="card">
+                <h3>Sugerencias para ti</h3>
+                <div id="videosGrid" class="grid" style="margin-top:12px"></div>
+              </div>
+            </div>
+
+            <div id="viewFavorites" class="view" style="display:none">
+              <div class="card">
+                <h3>Tus favoritos</h3>
+                <div id="favoritesGrid" class="grid" style="margin-top:12px"></div>
+                <div id="noFav" class="muted" style="margin-top:12px;display:none">Aún no tienes videos favoritos.</div>
+              </div>
+            </div>
+
+            <div id="viewStore" class="view" style="display:none">
+              <div class="card">
+                <h3>Tienda</h3>
+                <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                  <input id="storeSearch" placeholder="Buscar por nombre o marca" style="flex:1;padding:8px;border-radius:10px;border:1px solid #f0f0f0" />
+                  <select id="storeCategory" style="padding:8px;border-radius:10px;border:1px solid #f0f0f0">
+                    <option value="all">Todas</option>
+                    <option value="labiales">Labiales</option>
+                    <option value="sombras">Sombras</option>
+                    <option value="bases">Bases</option>
+                    <option value="brochas">Brochas</option>
+                    <option value="cremas">Cremas</option>
+                  </select>
+                  <button class="btn" id="storeSearchBtn">Buscar</button>
+                </div>
+                <div id="storeList" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
+              </div>
+            </div>
+
+            <div id="viewCart" class="view" style="display:none">
+              <div class="card">
+                <h3>Carrito</h3>
+                <div id="cartArea" style="margin-top:12px"></div>
+              </div>
+            </div>
+
+            <div id="viewUpload" class="view" style="display:none">
+              <div class="card">
+                <h3>Subir video</h3>
+                <form id="uploadForm">
+                  <label>Título</label>
+                  <input id="upTitle" required minlength="3" />
+                  <label>Descripción</label>
+                  <textarea id="upDesc" rows="3"></textarea>
+                  <label>Categoría</label>
+                  <select id="upCat"><option value="maquillaje">Maquillaje</option><option value="cuidado">Cuidado de la piel</option></select>
+
+                  <label>Miniatura (imagen)</label>
+                  <input type="file" id="upThumb" accept="image/*" />
+                  <label>Archivo de video (mp4, máx 10 MB)</label>
+                  <input type="file" id="upVideo" accept="video/mp4" />
+
+                  <div style="margin-top:8px">
+                    <h4>Productos usados</h4>
+                    <div id="prodUsed"></div>
+                    <button type="button" class="btn secondary" id="addProdRow">Agregar producto</button>
+                  </div>
+
+                  <div style="margin-top:12px;display:flex;gap:8px">
+                    <button class="btn" type="submit">Publicar video</button>
+                  </div>
+                  <div class="error" id="uploadErr"></div>
+                </form>
+              </div>
+            </div>
+
+            <div id="viewProfile" class="view" style="display:none">
+              <div class="card">
+                <h3>Perfil</h3>
+                <div style="display:flex;gap:12px;align-items:center">
+                  <div id="profileAvatar" class="avatar">U</div>
+                  <div style="flex:1">
+                    <div style="display:flex;gap:8px;align-items:center">
+                      <div style="flex:1">
+                        <div id="profileUser" style="font-weight:700"></div>
+                        <div class="muted" id="profileEmail"></div>
+                      </div>
+                    </div>
+                    <label>Biografía</label>
+                    <textarea id="profileBio" maxlength="250" rows="3"></textarea>
+                    <div class="muted small">Máx 250 caracteres</div>
+                    <div style="margin-top:8px;display:flex;gap:8px">
+                      <input type="file" id="profilePic" accept="image/*" />
+                      <button class="btn" id="saveProfile">Guardar</button>
+                    </div>
+                    <div class="muted" id="profileSaved" style="display:none;color:green">Perfil guardado</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="viewWireframe" class="view" style="display:none">
+              <div class="card">
+                <h3>Mapa visual de pantallas (Wireframe)</h3>
+                <p class="muted">Este esquema muestra las pantallas principales y sus conexiones.</p>
+                <div class="wf" style="margin-top:10px">
+                  <div class="box"><strong>Registro / Login</strong><div class="muted small">Crear cuenta / Iniciar sesión</div></div>
+                  <div class="box"><strong>Home</strong><div class="muted small">Feed de videos sugeridos</div></div>
+                  <div class="box"><strong>Detalle Video</strong><div class="muted small">Reproductor + productos</div></div>
+                  <div class="box"><strong>Favoritos</strong><div class="muted small">Videos guardados</div></div>
+                  <div class="box"><strong>Tienda</strong><div class="muted small">Búsqueda / filtros / carrito</div></div>
+                  <div class="box"><strong>Carrito</strong><div class="muted small">Pago QR / Tarjeta</div></div>
+                  <div class="box"><strong>Subir Video</strong><div class="muted small">Título / Miniatura / Productos</div></div>
+                  <div class="box"><strong>Perfil</strong><div class="muted small">Editar foto / biografía</div></div>
+                </div>
+                <p class="muted small" style="margin-top:12px">Flujo: Registro → Home → Detalle Video → (Agregar producto / Favorito) → Carrito → Pago</p>
+              </div>
+            </div>
+
+          </section>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Video modal -->
+    <div id="videoModal" class="modal">
+      <div class="panel">
+        <button style="float:right" id="closeVideo">Cerrar ✖</button>
+        <div id="videoPlayerArea"></div>
+      </div>
+    </div>
+
+    <!-- Product modal -->
+    <div id="productModal" class="modal">
+      <div class="panel" style="max-width:500px">
+        <button style="float:right" id="closeProduct">Cerrar ✖</button>
+        <div id="productDetail"></div>
+      </div>
+    </div>
+
+    <!-- Payment modal -->
+    <div id="paymentModal" class="modal">
+      <div class="panel" style="max-width:680px">
+        <button style="float:right" id="closePayment">Cerrar ✖</button>
+        <div id="paymentArea"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /********************************************************
+     * Simple SPA logic + localStorage "backend"
+     ********************************************************/
+
+    // Utility helpers
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    function uid(prefix='id'){return prefix+Math.random().toString(36).slice(2,9)}
+
+    // Storage keys
+    const K = {
+      users: 'ba_users',
+      current: 'ba_current',
+      videos: 'ba_videos',
+      products: 'ba_products',
+      favorites: 'ba_favorites',
+      cart: 'ba_cart'
+    }
+
+    // initialize sample data if empty
+    function initData(){
+      if(!localStorage.getItem(K.products)){
+        const products = [
+          {id:'p1',name:'Labial Rosa Nude',type:'labial',brand:'Belleza',tone:'Rosa Nude',price:9.99,stock:12,category:'labiales'},
+          {id:'p2',name:'Sombras Mini',type:'sombra',brand:'Glam',tone:'Paleta 5',price:14.5,stock:6,category:'sombras'},
+          {id:'p3',name:'Base Luminosa',type:'base',brand:'Luz',tone:'40W',price:19.9,stock:8,category:'bases'},
+          {id:'p4',name:'Brocha Kabuki',type:'brocha',brand:'ProBrush',tone:'-',price:12.0,stock:20,category:'brochas'},
+          {id:'p5',name:'Crema Hidratante',type:'crema',brand:'SkinJoy',tone:'Normal',price:11.8,stock:0,category:'cremas'}
+        ];
+        localStorage.setItem(K.products,JSON.stringify(products));
+      }
+
+      if(!localStorage.getItem(K.videos)){
+        const videos = [
+          {id:'v1',title:'Maquillaje natural para el día',desc:'Aprende a maquillarte en 5 minutos con un look fresco',thumb:'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.0.3&s=5d9c3f3ae6d9f3b1b0e4f1d43b3b36de',video:'https://www.w3schools.com/html/mov_bbb.mp4',category:'maquillaje',products:['p1','p3']},
+          {id:'v2',title:'Rutina de cuidado facial noche',desc:'Pasos sencillos para tu piel antes de dormir',thumb:'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.0.3&s=ed7b1a7ea4a1f1e6d1c2f2c3b1b2e2c3',video:'https://www.w3schools.com/html/mov_bbb.mp4',category:'cuidado',products:['p5']},
+          {id:'v3',title:'Ojos ahumados rápidos',desc:'Un smokey eyes fácil para salir de noche',thumb:'https://images.unsplash.com/photo-1530863426720-3c6d8b2b4f86?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.0.3&s=21b7c4b7c8d8e2e3f4d5c6b7a8a9b0c1',video:'https://www.w3schools.com/html/mov_bbb.mp4',category:'maquillaje',products:['p2','p4']}
+        ];
+        localStorage.setItem(K.videos,JSON.stringify(videos));
+      }
+
+      if(!localStorage.getItem(K.users)){
+        const users = [
+          {id:'u_demo',name:'Alejandra Demo',username:'ale_demo',email:'demo@beauty.app',pass:'DemoPass1!',bio:'Amante del maquillaje',avatar:null}
+        ];
+        localStorage.setItem(K.users,JSON.stringify(users));
+      }
+
+      if(!localStorage.getItem(K.favorites)) localStorage.setItem(K.favorites,JSON.stringify({}));
+      if(!localStorage.getItem(K.cart)) localStorage.setItem(K.cart,JSON.stringify({}));
+    }
+
+    initData();
+
+    // helpers to access storage
+    function getUsers(){return JSON.parse(localStorage.getItem(K.users)||'[]')}
+    function setUsers(u){localStorage.setItem(K.users,JSON.stringify(u))}
+    function getVideos(){return JSON.parse(localStorage.getItem(K.videos)||'[]')}
+    function setVideos(v){localStorage.setItem(K.videos,JSON.stringify(v))}
+    function getProducts(){return JSON.parse(localStorage.getItem(K.products)||'[]')}
+    function setProducts(p){localStorage.setItem(K.products,JSON.stringify(p))}
+    function getFav(){return JSON.parse(localStorage.getItem(K.favorites)||'{}')}
+    function setFav(f){localStorage.setItem(K.favorites,JSON.stringify(f))}
+    function getCart(){return JSON.parse(localStorage.getItem(K.cart)||'{}')}
+    function setCart(c){localStorage.setItem(K.cart,JSON.stringify(c))}
+
+    function getCurrent(){return JSON.parse(localStorage.getItem(K.current)||'null')}
+    function setCurrent(u){localStorage.setItem(K.current,JSON.stringify(u));}
+    function clearCurrent(){localStorage.removeItem(K.current)}
+
+    // ----------- VALIDATIONS
+    function validName(n){return /^[A-Za-zÀ-ÿ\s]{2,}$/.test(n.trim())}
+    function validUser(u){return /^[A-Za-z0-9_]{3,}$/.test(u)}
+    function validEmail(e){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)}
+    function validPassword(p){return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(p)}
+
+    // Luhn for card validation
+    function luhnCheck(num){
+      const s = (num+'').replace(/\D/g,'');
+      let sum=0,alt=false;
+      for(let i=s.length-1;i>=0;i--){
+        let n=parseInt(s.charAt(i),10);
+        if(alt){n*=2;if(n>9)n-=9}
+        sum+=n;alt=!alt;
+      }
+      return sum%10===0;
+    }
+
+    // ---------- AUTH
+    $('#toLogin').addEventListener('click',()=>{document.getElementById('loginUser').focus()})
+
+    $('#registerForm').addEventListener('submit',e=>{
+      e.preventDefault();
+      // clear errs
+      ['errName','errUser','errEmail','errPass','errPass2','errTerms'].forEach(id=>$('#'+id).textContent='');
+      const name = $('#regName').value.trim();
+      const user = $('#regUser').value.trim();
+      const email = $('#regEmail').value.trim();
+      const pass = $('#regPass').value;
+      const pass2 = $('#regPass2').value;
+      const terms = $('#terms').checked;
+      let ok=true;
+      if(!validName(name)){ $('#errName').textContent='Nombre inválido (solo letras/spacios, mín 2)'; ok=false }
+      if(!validUser(user)){ $('#errUser').textContent='Usuario inválido (mín 3, letras, números o _)'; ok=false }
+      if(!validEmail(email)){ $('#errEmail').textContent='Correo inválido'; ok=false }
+      if(!validPassword(pass)){ $('#errPass').textContent='Contraseña débil (min 8, mayúscula, minúscula, número y símbolo)'; ok=false }
+      if(pass!==pass2){ $('#errPass2').textContent='Las contraseñas no coinciden'; ok=false }
+      if(!terms){ $('#errTerms').textContent='Debes aceptar los términos'; ok=false }
+
+      // unique username/email
+      const users = getUsers();
+      if(users.some(u=>u.username.toLowerCase()===user.toLowerCase())){ $('#errUser').textContent='Nombre de usuario ya existe'; ok=false }
+      if(users.some(u=>u.email.toLowerCase()===email.toLowerCase())){ $('#errEmail').textContent='Correo ya registrado'; ok=false }
+
+      if(!ok) return;
+      const newU = {id:uid('u_'),name,username:user,email,pass,bio:'',avatar:null};
+      users.push(newU); setUsers(users); setCurrent(newU);
+      showApp();
+    })
+
+    $('#loginForm').addEventListener('submit',e=>{
+      e.preventDefault(); $('#errLogin').textContent='';
+      const key = $('#loginUser').value.trim(); const pass = $('#loginPass').value;
+      if(!key || !pass){ $('#errLogin').textContent='Completa los campos'; return }
+      const users = getUsers();
+      const u = users.find(x=> (x.email.toLowerCase()===key.toLowerCase() || x.username.toLowerCase()===key.toLowerCase()) && x.pass===pass );
+      if(!u){ $('#errLogin').textContent='Usuario o contraseña incorrectos'; return }
+      setCurrent(u); showApp();
+    })
+
+    $('#demo').addEventListener('click',()=>{
+      const users = getUsers(); const demo = users.find(u=>u.id==='u_demo'); setCurrent(demo); showApp();
+    })
+
+    function showApp(){
+      const cur = getCurrent();
+      if(!cur) return; document.getElementById('authArea').style.display='none'; document.getElementById('appArea').style.display='block';
+      $('#userHeader').innerHTML = `<div style=\"display:flex;gap:8px;align-items:center\"><div style=\"width:38px;height:38px;border-radius:50%;background:var(--accent);color:white;display:grid;place-items:center;font-weight:700\">${cur.name.split(' ')[0].charAt(0).toUpperCase()}</div><div><div style='font-weight:700'>${cur.name}</div><div class=\"sub\">Bienvenido</div></div></div>`
+      $('#sideName').textContent = cur.name; $('#sideEmail').textContent = cur.email; $('#sideAvatar').textContent = cur.name.charAt(0).toUpperCase();
+      $('#profileUser').textContent = cur.username; $('#profileEmail').textContent = cur.email; $('#profileAvatar').textContent = cur.name.charAt(0).toUpperCase();
+      renderHome(); renderStore(); renderProfile();
+    }
+
+    // logout
+    $('#logoutBtn').addEventListener('click',()=>{ clearCurrent(); location.reload(); })
+
+    // ---- NAV
+    $$('.layout nav button').forEach(b=>b.addEventListener('click',()=>{
+      $$('.layout nav button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      const view = b.getAttribute('data-view'); showView(view);
+    }))
+
+    function showView(name){ $$('.view').forEach(v=>v.style.display='none'); const el = document.getElementById('view'+capitalize(name)); if(el) el.style.display='block'; window.scrollTo(0,0); }
+    function capitalize(s){ if(!s) return ''; return s.charAt(0).toUpperCase()+s.slice(1) }
+
+    // ---- HOME / VIDEOS
+    function renderHome(){
+      const videos = getVideos(); const grid = $('#videosGrid'); grid.innerHTML='';
+      videos.forEach(v=>{
+        const div = document.createElement('div'); div.className='video-card';
+        div.innerHTML = `<div class='thumb' style="background-image:url('${v.thumb}')"></div>
+          <div class='title'>${v.title}</div>
+          <div class='desc'>${v.desc}</div>
+          <div style='display:flex;gap:8px;align-items:center;justify-content:space-between'>
+            <div class='mini'><div class='chip'>${v.category}</div></div>
+            <div style='display:flex;gap:8px'>
+              <button class='btn' data-action='open' data-id='${v.id}'>Ver</button>
+              <button class='btn secondary' data-action='fav' data-id='${v.id}'>❤</button>
+            </div>
+          </div>`;
+        grid.appendChild(div);
+      })
+      // attach events
+      grid.querySelectorAll('[data-action=open]').forEach(b=>b.addEventListener('click',()=>openVideo(b.dataset.id)));
+      grid.querySelectorAll('[data-action=fav]').forEach(b=>b.addEventListener('click',()=>toggleFav(b.dataset.id)));
+    }
+
+    function openVideo(id){
+      const v = getVideos().find(x=>x.id===id); if(!v) return;
+      const favs = getFav(); const cur = getCurrent();
+      const products = getProducts();
+      const player = document.getElementById('videoPlayerArea');
+      player.innerHTML = `
+        <h3>${v.title}</h3>
+        <video controls style='width:100%;max-height:360px'>
+           <source src='${v.video}' type='video/mp4'>
+           Tu navegador no soporta video.
+        </video>
+        <p class='muted'>${v.desc}</p>
+        <div style='display:flex;gap:8px;align-items:center;margin-top:8px'>
+          <button class='btn' id='favToggle'>${(favs[cur.id]||[]).includes(v.id)?'Ya en favoritos':'Agregar a favoritos'}</button>
+          <button class='btn secondary' id='shareBtn'>Compartir</button>
+        </div>
+        <hr />
+        <h4>Productos usados</h4>
+        <div id='videoProducts'></div>
+      `;
+      // render products
+      const vp = player.querySelector('#videoProducts');
+      v.products.forEach(pid=>{
+        const p = products.find(x=>x.id===pid);
+        if(!p) return;
+        const div = document.createElement('div'); div.className='product';
+        div.innerHTML = `<div class='p-thumb'>${p.brand.charAt(0)}</div>
+          <div class='p-info'><div style='font-weight:700'>${p.name}</div><div class='muted small'>${p.type} • ${p.tone}</div></div>
+          <div class='p-actions'><div style='font-weight:700'>$${p.price.toFixed(2)}</div><div>${p.stock>0?'<button class="btn small addCart" data-id="'+p.id+'">Agregar al carrito</button>':'<span class="muted">Agotado</span>'}</div></div>`;
+        vp.appendChild(div);
+      })
+
+      // events
+      player.querySelector('#favToggle').addEventListener('click',()=>{ toggleFav(v.id); player.querySelector('#favToggle').textContent=(getFav()[getCurrent().id]||[]).includes(v.id)?'Ya en favoritos':'Agregar a favoritos' });
+      player.querySelectorAll('.addCart').forEach(b=>b.addEventListener('click',()=>{ addToCart(b.dataset.id,1); }));
+
+      $('#videoModal').classList.add('open');
+    }
+
+    $('#closeVideo').addEventListener('click',()=>$('#videoModal').classList.remove('open'))
+
+    // favorites
+    function toggleFav(videoId){
+      const cur = getCurrent(); if(!cur) return alert('No logueado');
+      const fav = getFav(); fav[cur.id] = fav[cur.id] || [];
+      if(fav[cur.id].includes(videoId)) fav[cur.id] = fav[cur.id].filter(x=>x!==videoId); else fav[cur.id].push(videoId);
+      setFav(fav); renderFavorites(); alert('Actualizado')
+    }
+
+    function renderFavorites(){
+      const cur=getCurrent(); const favs = getFav(); const list = favs[cur.id]||[]; const grid = $('#favoritesGrid'); grid.innerHTML='';
+      if(list.length===0){ $('#noFav').style.display='block'; return } else $('#noFav').style.display='none';
+      const videos = getVideos(); list.forEach(id=>{
+        const v = videos.find(x=>x.id===id); if(!v) return;
+        const div=document.createElement('div'); div.className='video-card'; div.innerHTML=`<div class='thumb' style="background-image:url('${v.thumb}')"></div><div class='title'>${v.title}</div><div class='desc'>${v.desc}</div><div style='display:flex;justify-content:flex-end'><button class='btn' data-id='${v.id}'>Ver</button></div>`; grid.appendChild(div);
+      });
+      grid.querySelectorAll('button[data-id]').forEach(b=>b.addEventListener('click',()=>openVideo(b.dataset.id)));
+    }
+
+    // ---- Store
+    function renderStore(){
+      const products = getProducts(); const container = $('#storeList'); container.innerHTML='';
+      products.forEach(p=>{
+        const card = document.createElement('div'); card.className='product'; card.innerHTML = `<div class='p-thumb'>${p.brand.charAt(0)}</div>
+          <div class='p-info'><div style='font-weight:700'>${p.name}</div><div class='muted small'>${p.brand} • ${p.category}</div></div>
+          <div style='display:flex;flex-direction:column;gap:8px;align-items:flex-end'>
+            <div style='font-weight:700'>$${p.price.toFixed(2)}</div>
+            <div>${p.stock>0?'<button class="btn addStore" data-id="'+p.id+'">Agregar</button>':'<span class="muted">Agotado</span>'}</div>
+          </div>`;
+        container.appendChild(card);
+      })
+      container.querySelectorAll('.addStore').forEach(b=>b.addEventListener('click',()=>addToCart(b.dataset.id,1)));
+    }
+
+    $('#storeSearchBtn').addEventListener('click',()=>{
+      const q = $('#storeSearch').value.trim().toLowerCase(); const cat = $('#storeCategory').value;
+      const products = getProducts().filter(p=> (p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q) || q==='') && (cat==='all' || p.category===cat) );
+      const container = $('#storeList'); container.innerHTML='';
+      if(products.length===0){ container.innerHTML='<div class="muted">No se encontraron resultados</div>'; return }
+      products.forEach(p=>{
+        const card = document.createElement('div'); card.className='product'; card.innerHTML = `<div class='p-thumb'>${p.brand.charAt(0)}</div>
+          <div class='p-info'><div style='font-weight:700'>${p.name}</div><div class='muted small'>${p.brand} • ${p.category}</div></div>
+          <div style='display:flex;flex-direction:column;gap:8px;align-items:flex-end'>
+            <div style='font-weight:700'>$${p.price.toFixed(2)}</div>
+            <div>${p.stock>0?'<button class="btn addStore" data-id="'+p.id+'">Agregar</button>':'<span class="muted">Agotado</span>'}</div>
+          </div>`;
+        container.appendChild(card);
+      })
+      container.querySelectorAll('.addStore').forEach(b=>b.addEventListener('click',()=>addToCart(b.dataset.id,1)));
+    })
+
+    // ---- Cart
+    function addToCart(productId, qty){
+      const p = getProducts().find(x=>x.id===productId); if(!p) return alert('Producto no encontrado');
+      if(p.stock<=0) return alert('Producto agotado');
+      const cur = getCurrent(); if(!cur) return alert('Debes ingresar');
+      const cart = getCart(); cart[cur.id] = cart[cur.id]||[];
+      const exists = cart[cur.id].find(x=>x.productId===productId);
+      if(exists){ if(exists.qty+qty>p.stock) return alert('No hay suficiente stock'); exists.qty+=qty; } else cart[cur.id].push({productId:productId,qty:qty});
+      setCart(cart); alert('Agregado al carrito'); renderCart();
+    }
+
+    function renderCart(){
+      const cur = getCurrent(); if(!cur) return; const cart = getCart()[cur.id]||[]; const container = $('#cartArea');
+      if(cart.length===0){ container.innerHTML='<div class="muted">Tu carrito está vacío</div>'; return }
+      const products = getProducts();
+      let html = '<table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead><tbody>';
+      let total = 0;
+      cart.forEach(item=>{
+        const p = products.find(x=>x.id===item.productId); if(!p) return;
+        const sub = p.price * item.qty; total += sub;
+        html += `<tr data-id='${p.id}'><td>${p.name}<div class='muted small'>${p.brand}</div></td><td><input type='number' min='1' max='${p.stock}' value='${item.qty}' class='cartQty' style='width:64px'/></td><td>$${p.price.toFixed(2)}</td><td>$${sub.toFixed(2)}</td><td><button class='btn removeItem'>Eliminar</button></td></tr>`;
+      });
+      html += `</tbody></table><div style='display:flex;justify-content:space-between;align-items:center;margin-top:12px'><div style='font-weight:800'>Total: $${total.toFixed(2)}</div><div style='display:flex;gap:8px'><button class='btn' id='payQR'>Pagar con QR</button><button class='btn' id='payCard'>Pagar con tarjeta</button></div></div>`;
+      container.innerHTML = html;
+      // attach events
+      container.querySelectorAll('.cartQty').forEach((inp,i)=>inp.addEventListener('change',e=>{
+        const newQ = parseInt(e.target.value)||1; const id = container.querySelectorAll('tbody tr')[i].getAttribute('data-id'); updateCartQty(id,newQ);
+      }));
+      container.querySelectorAll('.removeItem').forEach((b,i)=>b.addEventListener('click',()=>{ const id = container.querySelectorAll('tbody tr')[i].getAttribute('data-id'); removeCartItem(id); }));
+      $('#payQR').addEventListener('click',()=>openPayment('qr'));
+      $('#payCard').addEventListener('click',()=>openPayment('card'));
+    }
+
+    function updateCartQty(productId,qty){ const cart = getCart(); const cur = getCurrent(); if(!cart[cur.id]) return; const item = cart[cur.id].find(x=>x.productId===productId); if(!item) return; const p = getProducts().find(x=>x.id===productId); if(qty<1) qty=1; if(qty>p.stock){ alert('No hay tanto stock'); qty = p.stock }
+      item.qty = qty; setCart(cart); renderCart(); }
+    function removeCartItem(productId){ const cart = getCart(); const cur = getCurrent(); cart[cur.id] = cart[cur.id].filter(x=>x.productId!==productId); setCart(cart); renderCart(); }
+
+    function openPayment(mode){ const cart = getCart(); const cur = getCurrent(); const items = (cart[cur.id]||[]); if(items.length===0) return alert('Carrito vacío'); const products = getProducts(); let total = 0; items.forEach(it=>{ const p = products.find(x=>x.id===it.productId); if(p) total += p.price*it.qty });
+      const area = $('#paymentArea'); area.innerHTML = `<h3>Pago: $${total.toFixed(2)}</h3>`;
+      if(mode==='qr'){
+        area.innerHTML += `<p class='muted'>Escanea el QR con tu app bancaria para pagar (simulado)</p><canvas id='qrCanvas' width='220' height='220' style='background:#fff;border:1px solid #eee'></canvas><div id='qrTimer' class='muted small' style='margin-top:8px'></div><div style='margin-top:12px;display:flex;gap:8px'><button class='btn' id='confirmQR'>He pagado</button></div>`;
+        $('#paymentModal').classList.add('open');
+        drawFakeQR(); startQRTimer(120);
+        $('#confirmQR').addEventListener('click',()=>{ completePayment('qr') });
+      } else {
+        area.innerHTML += `<form id='cardForm'>
+          <label>Número de tarjeta</label><input id='cardNum' placeholder='1234 5678 9012 3456' required />
+          <label>Vencimiento (MM/AA)</label><input id='cardExp' placeholder='09/27' required />
+          <label>CVV</label><input id='cardCVV' placeholder='123' required />
+          <div class='error' id='cardErr'></div>
+          <div style='margin-top:8px;display:flex;gap:8px'><button class='btn' type='submit'>Pagar $${total.toFixed(2)}</button></div>
+        </form>`;
+        $('#paymentModal').classList.add('open');
+        $('#cardForm').addEventListener('submit',e=>{ e.preventDefault(); const num = $('#cardNum').value.replace(/\s+/g,''); const exp = $('#cardExp').value; const cvv = $('#cardCVV').value.trim(); $('#cardErr').textContent=''; if(!luhnCheck(num)){ $('#cardErr').textContent='Número de tarjeta inválido'; return } const [mm,yy] = exp.split('/'); if(!mm || !yy || parseInt(mm)<1 || parseInt(mm)>12){ $('#cardErr').textContent='Fecha inválida'; return } const expYear = 2000 + parseInt(yy); const expDate = new Date(expYear,parseInt(mm)-1,1); if(expDate < new Date()){ $('#cardErr').textContent='Tarjeta vencida'; return } if(!/^[0-9]{3,4}$/.test(cvv)){ $('#cardErr').textContent='CVV inválido'; return } completePayment('card'); });
+      }
+    }
+
+    $('#closePayment').addEventListener('click',()=>$('#paymentModal').classList.remove('open'))
+
+    function completePayment(method){
+      // decrement stock, clear cart for user
+      const cur = getCurrent(); const cart = getCart(); const items = cart[cur.id]||[]; const products = getProducts();
+      items.forEach(it=>{ const p = products.find(x=>x.id===it.productId); if(p){ p.stock = Math.max(0,p.stock - it.qty) }});
+      setProducts(products); cart[cur.id]=[]; setCart(cart); renderStore(); renderCart(); $('#paymentModal').classList.remove('open'); alert('Pago procesado con éxito (método: '+method+')') }
+
+    // Fake QR: draw a simple block pattern
+    let qrTimerInterval=null;
+    function drawFakeQR(){ const c = document.getElementById('qrCanvas'); if(!c) return; const ctx = c.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,c.width,c.height); ctx.fillStyle='#fff'; ctx.fillRect(8,8,c.width-16,c.height-16);
+      // draw randomish blocks seeded by time
+      for(let x=0;x<20;x++){ for(let y=0;y<20;y++){ if(Math.random()>0.72) ctx.fillRect(10+x*10,10+y*10,8,8) }}
+    }
+    function startQRTimer(seconds){ clearInterval(qrTimerInterval); let s=seconds; const el = document.getElementById('qrTimer'); el.textContent = 'QR expira en '+formatTime(s); qrTimerInterval = setInterval(()=>{ s--; if(s<=0){ clearInterval(qrTimerInterval); el.textContent='QR expirado'; } else el.textContent = 'QR expira en '+formatTime(s); },1000) }
+    function formatTime(s){ const m=Math.floor(s/60); const ss=s%60; return `${m}:${ss.toString().padStart(2,'0')}` }
+
+    // ---- Upload Video
+    $('#addProdRow').addEventListener('click',()=>{
+      const row = document.createElement('div'); row.style.display='flex'; row.style.gap='8px'; row.style.marginTop='6px'; row.innerHTML = `<input placeholder='Nombre del producto' class='pName' /> <input placeholder='Tipo' class='pType' /> <input placeholder='Marca' class='pBrand' /> <button class='btn removeRow'>Quitar</button>`;
+      $('#prodUsed').appendChild(row); row.querySelector('.removeRow').addEventListener('click',()=>row.remove());
+    })
+
+    $('#uploadForm').addEventListener('submit',async e=>{
+      e.preventDefault(); $('#uploadErr').textContent=''; const title=$('#upTitle').value.trim(); if(title.length<3){ $('#uploadErr').textContent='Título mínimo 3 caracteres'; return }
+      const desc = $('#upDesc').value.trim(); const cat = $('#upCat').value; const thumbFile = $('#upThumb').files[0]; const videoFile = $('#upVideo').files[0];
+      const prodRows = Array.from(document.querySelectorAll('#prodUsed .pName'));
+      if(prodRows.length===0){ $('#uploadErr').textContent='Agrega al menos un producto usado'; return }
+      // read thumb
+      let thumbData = null; if(thumbFile){ if(thumbFile.size>1024*1024*2){ $('#uploadErr').textContent='Miniatura muy grande (máx 2 MB)'; return } thumbData = await readFileAsDataURL(thumbFile); }
+      let videoData = null; if(videoFile){ if(videoFile.size>1024*1024*10){ $('#uploadErr').textContent='Video muy grande (máx 10 MB)'; return } videoData = await readFileAsDataURL(videoFile); }
+      // products: map into product pool (we'll add new products to store)
+      const products = getProducts(); const usedIDs = [];
+      prodRows.forEach((inp,i)=>{
+        const name = inp.value.trim(); const type = inp.parentNode.querySelector('.pType').value.trim(); const brand = inp.parentNode.querySelector('.pBrand').value.trim(); if(!name) return; const id = 'p_'+Math.random().toString(36).slice(2,8); const p = {id,id:id,name:name,type:type||'-',brand:brand||'Marca',tone:'-',price:0,stock:1,category:'labiales'}; products.push(p); usedIDs.push(p.id);
+      })
+      setProducts(products);
+      // save video
+      const videos = getVideos(); const newV = {id:uid('v_'),title,desc,thumb:thumbData||'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop&ixlib=rb-4.0.3&s=ed7b1a7ea4a1f1e6d1c2f2c3b1b2e2c3',video:videoData||'https://www.w3schools.com/html/mov_bbb.mp4',category:cat,products:usedIDs}; videos.unshift(newV); setVideos(videos); alert('Video publicado'); renderHome(); renderStore();
+    })
+
+    function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror=()=>rej('error'); fr.readAsDataURL(file); }) }
+
+    // ---- PROFILE
+    function renderProfile(){ const cur = getCurrent(); if(!cur) return; $('#profileUser').textContent = cur.username; $('#profileEmail').textContent = cur.email; $('#profileBio').value = cur.bio || '';
+      if(cur.avatar){ $('#profileAvatar').style.backgroundImage = `url(${cur.avatar})`; $('#profileAvatar').textContent=''; $('#sideAvatar').style.backgroundImage=`url(${cur.avatar})`; $('#sideAvatar').textContent=''; } else { $('#profileAvatar').textContent = cur.name.charAt(0).toUpperCase(); $('#sideAvatar').textContent = cur.name.charAt(0).toUpperCase(); }}
+
+    $('#saveProfile').addEventListener('click',async ()=>{
+      const cur = getCurrent(); const bio = $('#profileBio').value.trim(); if(bio.length>250) return alert('Bio demasiado larga'); const file = $('#profilePic').files[0]; let avatarData=null; if(file){ if(!file.type.startsWith('image/')) return alert('Solo imágenes'); if(file.size>1024*1024*2) return alert('Imagen muy grande (máx 2MB)'); avatarData = await readFileAsDataURL(file) }
+      // save in users
+      const users = getUsers(); const u = users.find(x=>x.id===cur.id); if(u){ u.bio = bio; if(avatarData) u.avatar = avatarData; setUsers(users); setCurrent(u); renderProfile(); $('#profileSaved').style.display='block'; setTimeout(()=>$('#profileSaved').style.display='none',2000) }
+    })
+
+    // search header
+    $('#searchBtn').addEventListener('click',()=>{
+      const q = $('#searchInput').value.trim().toLowerCase(); const cat = $('#categoryFilter').value; if(q.length>0 && q.length<2){ alert('La búsqueda debe tener mínimo 2 letras'); return }
+      // search videos by title/desc or products by name/brand
+      const videos = getVideos(); const products = getProducts(); let results = videos.filter(v=> (v.title.toLowerCase().includes(q) || v.desc.toLowerCase().includes(q) || q==='') && (cat==='all' || v.category===cat) );
+      if(results.length===0){ alert('No se encontraron videos'); }
+      // render results in home
+      const grid = $('#videosGrid'); grid.innerHTML=''; results.forEach(v=>{ const div=document.createElement('div'); div.className='video-card'; div.innerHTML=`<div class='thumb' style="background-image:url('${v.thumb}')"></div><div class='title'>${v.title}</div><div class='desc'>${v.desc}</div><div style='display:flex;justify-content:flex-end'><button class='btn' data-id='${v.id}'>Ver</button></div>`; grid.appendChild(div) });
+      grid.querySelectorAll('button[data-id]').forEach(b=>b.addEventListener('click',()=>openVideo(b.dataset.id)));
+      showView('home');
+    })
+
+    // On load: if already logged -> show app
+    window.addEventListener('load',()=>{
+      const cur = getCurrent(); if(cur){ showApp(); } else { document.getElementById('authArea').style.display='block'; }
+    })
+
+    // close product modal
+    $('#closeProduct').addEventListener('click',()=>$('#productModal').classList.remove('open'))
+
+    // initial render for favorites when user logs in
+    // Also render cart when opening cart view
+    $$('.layout nav button').forEach(b=>b.addEventListener('click',()=>{ if(b.getAttribute('data-view')==='favorites') renderFavorites(); if(b.getAttribute('data-view')==='cart') renderCart(); }))
+
+  </script>
+</body>
+</html>
+
